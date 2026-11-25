@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PIXEL TYPING SURVIVORS - 한컴타자 서바이벌</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DungGeunMo&display=swap');
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #0d0f14;
+      color: #f0f4f8;
+      font-family: 'DungGeunMo', monospace, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 960px;
+      height: 640px;
+      border: 4px solid #3b4252;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.6);
+      background: #161922;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    /* 상단 HUD */
+    #hud-top {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(13, 15, 20, 0.9), transparent);
+    }
+
+    .hud-box {
+      background: rgba(24, 28, 38, 0.85);
+      border: 2px solid #4c566a;
+      padding: 8px 12px;
+      border-radius: 4px;
+    }
+
+    .stat-row {
+      display: flex;
+      gap: 16px;
+      font-size: 16px;
+    }
+
+    .stat-label { color: #88c0d0; }
+    .stat-val { color: #eceff4; font-weight: bold; }
+    .combo-val { color: #ebcb8b; }
+
+    /* 경험치 바 */
+    #xp-bar-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: #2e3440;
+    }
+    #xp-bar {
+      width: 0%;
+      height: 100%;
+      background: #a3be8c;
+      transition: width 0.2s;
+    }
+
+    /* 하단 타자 입력창 */
+    #typing-bar {
+      position: absolute;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 460px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #target-preview {
+      font-size: 18px;
+      background: rgba(13, 15, 20, 0.85);
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: 1px solid #4c566a;
+      min-height: 30px;
+      letter-spacing: 1px;
+    }
+
+    .matched-char { color: #a3be8c; text-shadow: 0 0 6px #a3be8c; }
+    .unmatched-char { color: #d8dee9; }
+
+    #typing-input {
+      width: 100%;
+      padding: 10px 16px;
+      font-family: 'DungGeunMo', monospace;
+      font-size: 22px;
+      text-align: center;
+      background: rgba(20, 24, 33, 0.95);
+      color: #88c0d0;
+      border: 3px solid #88c0d0;
+      border-radius: 6px;
+      outline: none;
+      box-shadow: 0 0 15px rgba(136, 192, 208, 0.3);
+    }
+
+    #typing-input.error-shake {
+      border-color: #bf616a;
+      animation: shake 0.2s ease-in-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+
+    /* 오버레이 모달 (시작, 레벨업, 게임오버) */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(13, 15, 20, 0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .hidden { display: none !important; }
+
+    h1 {
+      font-size: 44px;
+      color: #88c0d0;
+      text-shadow: 3px 3px 0 #2e3440, 0 0 20px rgba(136, 192, 208, 0.5);
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 32px;
+      color: #ebcb8b;
+      margin-bottom: 16px;
+    }
+
+    p.desc {
+      font-size: 18px;
+      color: #d8dee9;
+      line-height: 1.6;
+      margin-bottom: 24px;
+      max-width: 600px;
+    }
+
+    .btn {
+      font-family: 'DungGeunMo', monospace;
+      font-size: 22px;
+      padding: 12px 28px;
+      background: #5e81ac;
+      color: #eceff4;
+      border: 3px solid #88c0d0;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    .btn:hover {
+      background: #81a1c1;
+      transform: scale(1.05);
+    }
+
+    /* 업그레이드 카드 */
+    .upgrade-cards {
+      display: flex;
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    .card {
+      width: 210px;
+      background: #2e3440;
+      border: 3px solid #4c566a;
+      border-radius: 8px;
+      padding: 18px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .card:hover {
+      border-color: #ebcb8b;
+      transform: translateY(-6px);
+      background: #3b4252;
+    }
+
+    .card-key {
+      display: inline-block;
+      background: #ebcb8b;
+      color: #2e3440;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 20px;
+      color: #88c0d0;
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 15px;
+      color: #d8dee9;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <div id="xp-bar-container"><div id="xp-bar"></div></div>
+  <canvas id="gameCanvas" width="960" height="640"></canvas>
+
+  <!-- 상단 상태 표시 -->
+  <div id="hud-top">
+    <div class="hud-box">
+      <div class="stat-row">
+        <div><span class="stat-label">LV.</span> <span id="ui-level" class="stat-val">1</span></div>
+        <div><span class="stat-label">WAVE</span> <span id="ui-wave" class="stat-val">1</span></div>
+        <div><span class="stat-label">HP</span> <span id="ui-hp" class="stat-val">100/100</span></div>
+        <div><span class="stat-label">SCORE</span> <span id="ui-score" class="stat-val">0</span></div>
+      </div>
+    </div>
+
+    <div class="hud-box">
+      <div class="stat-row">
+        <div><span class="stat-label">타수</span> <span id="ui-cpm" class="stat-val">0</span></div>
+        <div><span class="stat-label">정확도</span> <span id="ui-acc" class="stat-val">100%</span></div>
+        <div><span class="stat-label">COMBO</span> <span id="ui-combo" class="stat-val combo-val">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 하단 타자 입력 영역 -->
+  <div id="typing-bar">
+    <div id="target-preview">몬스터의 단어를 입력하세요</div>
+    <input type="text" id="typing-input" placeholder="여기에 한글 입력..." autocomplete="off" spellcheck="false" />
+  </div>
+
+  <!-- 시작 화면 -->
+  <div id="start-screen" class="overlay">
+    <h1>PIXEL TYPING SURVIVORS</h1>
+    <p class="desc">
+      사방에서 몰려오는 몬스터 머리 위의 <b>한글 단어</b>를 입력하세요.<br>
+      단어를 정확히 완성하면 <b>Enter 없이 즉시 자동 공격</b>이 발사됩니다!<br>
+      웨이브가 오를수록 긴 단어와 보스 문장이 등장합니다.
+    </p>
+    <button class="btn" id="start-btn">게임 시작 (ENTER)</button>
+  </div>
+
+  <!-- 레벨업 업그레이드 화면 -->
+  <div id="levelup-screen" class="overlay hidden">
+    <h2>LEVEL UP! 능력을 선택하세요</h2>
+    <p class="desc">숫자 키 [1], [2], [3] 또는 마우스 클릭으로 선택</p>
+    <div class="upgrade-cards" id="upgrade-cards"></div>
+  </div>
+
+  <!-- 게임 오버 화면 -->
+  <div id="gameover-screen" class="overlay hidden">
+    <h1 style="color:#bf616a;">GAME OVER</h1>
+    <p class="desc" id="final-stats"></p>
+    <button class="btn" id="restart-btn">다시 도전하기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const inputEl = document.getElementById('typing-input');
+  const previewEl = document.getElementById('target-preview');
+
+  // 난이도별 한글 단어/문장 데이터
+  const WORD_POOLS = {
+    easy: [
+      '사과', '바다', '하늘', '구름', '별빛', '바람', '나무', '불꽃', '얼음', '번개',
+      '검객', '방패', '마법', '물약', '보석', '용사', '모험', '전설', '우주', '시간',
+      '기억', '희망', '용기', '자유', '평화', '새벽', '노을', '은하', '혜성', '태양'
+    ],
+    medium: [
+      '무지개', '해바라기', '은하수', '도깨비', '수호자', '대마법사', '불사조', '용의숨결',
+      '시간여행', '별똥별', '신기루', '오로라', '소나기', '첫눈길', '달빛아래', '그림자',
+      '수수께끼', '보물상자', '비밀의숲', '황금열쇠', '무한궤도', '차원문', '수호신'
+    ],
+    hard: [
+      '아직 한 발 남았다',
+      '가는 말이 고와야 오는 말이 곱다',
+      '천 리 길도 한 걸음부터',
+      '호랑이 굴에 들어가야 호랑이를 잡는다',
+      '티끌 모아 태산이 된다',
+      '백지장도 맞들면 낫다',
+      '등잔 밑이 어둡다',
+      '시작이 반이다',
+      '고생 끝에 낙이 온다',
+      '우물 안 개구리'
+    ],
+    boss: [
+      '어둠을 가르는 빛의 검으로 모든 적을 물리쳐라',
+      '빠르고 정확한 타자만이 이 세계에서 살아남는 유일한 길이다',
+      '포기하지 않는 용기가 모여 기적의 승리를 만들어낸다',
+      '폭풍우가 몰아쳐도 흔들리지 않는 강철 같은 의지를 보여라'
+    ]
+  };
+
+  // 게임 상태
+  let state = 'START'; // START, PLAYING, LEVELUP, GAMEOVER
+  let lastTime = 0;
+  let gameTime = 0;
+  let spawnTimer = 0;
+  let wave = 1;
+  let kills = 0;
+  let bossSpawnedInWave = false;
+
+  // 플레이어 스탯
+  const player = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    radius: 18,
+    hp: 100,
+    maxHp: 100,
+    level: 1,
+    xp: 0,
+    nextXp: 50,
+    score: 0,
+    attackPower: 1,     // 기본 타격 데미지 배율
+    chainCount: 0,      // 연쇄 번개 추가 타격 수
+    scoreMult: 1.0,     // 점수 배율
+    healOnKill: 0       // 처치 시 체력 회복
+  };
+
+  // 타자 통계
+  const typingStats = {
+    totalKeystrokes: 0,
+    validStrokes: 0,
+    errors: 0,
+    combo: 0,
+    maxCombo: 0,
+    startTime: 0
+  };
+
+  // 엔티티 배열
+  let monsters = [];
+  let projectiles = [];
+  let particles = [];
+  let gems = [];
+  let floatingTexts = [];
+  let lockedMonster = null;
+
+  // 한글 자모 수 계산 (타수 측정용)
+  function countJamo(str) {
+    let count = 0;
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i);
+      if (code >= 0xAC00 && code <= 0xD7A3) {
+        const offset = code - 0xAC00;
+        const jong = offset % 28;
+        count += jong > 0 ? 3 : 2;
+      } else if (str[i] !== ' ') {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  // 단어 선택 (웨이브 난이도 반영)
+  function pickWord(isBoss = false) {
+    if (isBoss) {
+      return WORD_POOLS.boss[Math.floor(Math.random() * WORD_POOLS.boss.length)];
+    }
+    const r = Math.random();
+    let pool = WORD_POOLS.easy;
+    if (wave === 2) {
+      pool = r < 0.6 ? WORD_POOLS.easy : WORD_POOLS.medium;
+    } else if (wave === 3) {
+      pool = r < 0.3 ? WORD_POOLS.easy : (r < 0.85 ? WORD_POOLS.medium : WORD_POOLS.hard);
+    } else if (wave >= 4) {
+      pool = r < 0.2 ? WORD_POOLS.medium : WORD_POOLS.hard;
+    }
+
+    // 현재 화면에 없는 단어 우선 선택
+    const activeWords = new Set(monsters.map(m => m.word));
+    const candidates = pool.filter(w => !activeWords.has(w));
+    const finalPool = candidates.length > 0 ? candidates : pool;
+    return finalPool[Math.floor(Math.random() * finalPool.length)];
+  }
+
+  // 몬스터 생성
+  function spawnMonster(isBoss = false) {
+    const edge = Math.floor(Math.random() * 4);
+    let x, y;
+    const margin = 40;
+    if (edge === 0) { x = Math.random() * canvas.width; y = -margin; }
+    else if (edge === 1) { x = canvas.width + margin; y = Math.random() * canvas.height; }
+    else if (edge === 2) { x = Math.random() * canvas.width; y = canvas.height + margin; }
+    else { x = -margin; y = Math.random() * canvas.height; }
+
+    const word = pickWord(isBoss);
+    const baseSpeed = isBoss ? 16 : (26 + wave * 2.2);
+    const maxHp = isBoss ? (3 + Math.floor(wave / 3)) : (word.length >= 8 ? 2 : 1);
+
+    monsters.push({
+      x, y,
+      radius: isBoss ? 34 : (word.length >= 8 ? 22 : 16),
+      speed: baseSpeed,
+      word: word,
+      hp: maxHp,
+      maxHp: maxHp,
+      isBoss: isBoss,
+      color: isBoss ? '#bf616a' : (maxHp > 1 ? '#d08770' : '#b48ead'),
+      hitFlash: 0
+    });
+  }
+
+  // 게임 초기화
+  function initGame() {
+    player.hp = 100;
+    player.maxHp = 100;
+    player.level = 1;
+    player.xp = 0;
+    player.nextXp = 50;
+    player.score = 0;
+    player.attackPower = 1;
+    player.chainCount = 0;
+    player.scoreMult = 1.0;
+    player.healOnKill = 0;
+
+    typingStats.totalKeystrokes = 0;
+    typingStats.validStrokes = 0;
+    typingStats.errors = 0;
+    typingStats.combo = 0;
+    typingStats.maxCombo = 0;
+    typingStats.startTime = performance.now();
+
+    monsters = [];
+    projectiles = [];
+    particles = [];
+    gems = [];
+    floatingTexts = [];
+    lockedMonster = null;
+
+    wave = 1;
+    kills = 0;
+    gameTime = 0;
+    spawnTimer = 0;
+    bossSpawnedInWave = false;
+
+    inputEl.value = '';
+    previewEl.innerHTML = '몬스터의 단어를 입력하세요';
+
+    for (let i = 0; i < 3; i++) spawnMonster(false);
+    updateHUD();
+  }
+
+  // 타겟 탐색 및 입력 처리
+  function handleTypingInput() {
+    if (state !== 'PLAYING') return;
+    const val = inputEl.value;
+
+    if (!val) {
+      lockedMonster = null;
+      previewEl.innerHTML = '몬스터의 단어를 입력하세요';
+      return;
+    }
+
+    // 1. 정확히 일치하는 몬스터가 있는지 먼저 검사 (자동 공격 발동!)
+    const exactMatch = monsters.find(m => m.word === val);
+    if (exactMatch) {
+      executeAttack(exactMatch);
+      inputEl.value = '';
+      lockedMonster = null;
+      previewEl.innerHTML = '<span style="color:#a3be8c;">명중! 다음 목표를 입력하세요</span>';
+      return;
+    }
+
+    // 2. 현재 입력 중인 글자(조합 중인 마지막 글자 제외)로 시작하는 몬스터 찾기
+    // 한글 조합 중에는 마지막 1글자가 완성 전일 수 있으므로 앞부분(prefix)으로 유연하게 매칭
+    const stablePrefix = val.length > 1 ? val.slice(0, -1) : '';
+    let candidate = null;
+
+    if (lockedMonster && monsters.includes(lockedMonster)) {
+      if (lockedMonster.word.startsWith(val) || (stablePrefix && lockedMonster.word.startsWith(stablePrefix))) {
+        candidate = lockedMonster;
+      }
+    }
+
+    if (!candidate) {
+      // 플레이어와 가장 가까운 몬스터 중 매칭되는 대상 탐색
+      const sorted = [...monsters].sort((a, b) => dist(player, a) - dist(player, b));
+      candidate = sorted.find(m => m.word.startsWith(val)) ||
+                  (stablePrefix ? sorted.find(m => m.word.startsWith(stablePrefix)) : null);
+    }
+
+    if (candidate) {
+      lockedMonster = candidate;
+      renderPreview(candidate.word, val);
+    } else {
+      // 조합 중인 첫 글자가 아닐 때 완전히 틀린 입력이면 오타 처리
+      if (val.length > 1) {
+        typingStats.errors++;
+        typingStats.combo = 0;
+        inputEl.classList.remove('error-shake');
+        void inputEl.offsetWidth;
+        inputEl.classList.add('error-shake');
+        updateHUD();
+      }
+      previewEl.innerHTML = `<span style="color:#bf616a;">일치하는 단어 없음: ${val}</span>`;
+    }
+  }
+
+  // 하단 미리보기 렌더링
+  function renderPreview(targetWord, typed) {
+    let matchLen = 0;
+    for (let i = 0; i < typed.length; i++) {
+      if (targetWord[i] === typed[i]) matchLen++;
+      else break;
+    }
+    const matched = targetWord.slice(0, matchLen);
+    const rest = targetWord.slice(matchLen);
+    previewEl.innerHTML = `<span class="matched-char">${matched}</span><span class="unmatched-char">${rest}</span>`;
+  }
+
+  // 공격 실행 (투사체 발사)
+  function executeAttack(target) {
+    const jamoCount = countJamo(target.word);
+    typingStats.validStrokes += jamoCount;
+    typingStats.combo++;
+    if (typingStats.combo > typingStats.maxCombo) {
+      typingStats.maxCombo = typingStats.combo;
+    }
+
+    const damage = player.attackPower;
+    projectiles.push({
+      x: player.x,
+      y: player.y,
+      target: target,
+      speed: 780,
+      damage: damage,
+      chainLeft: player.chainCount,
+      wordLen: target.word.length
+    });
+
+    updateHUD();
+  }
+
+  // 투사체 명중 처리
+  function onProjectileHit(proj) {
+    const target = proj.target;
+    if (!monsters.includes(target)) return;
+
+    target.hp -= proj.damage;
+    target.hitFlash = 0.15;
+    spawnParticles(target.x, target.y, '#88c0d0', 10);
+
+    const comboBonus = 1 + Math.min(typingStats.combo * 0.05, 2.0);
+    const pts = Math.round(proj.wordLen * 15 * comboBonus * player.scoreMult);
+    player.score += pts;
+
+    addFloatingText(target.x, target.y - 20, `-${proj.damage} (+${pts})`, '#ebcb8b');
+
+    if (target.hp <= 0) {
+      killMonster(target);
+    } else if (target.isBoss) {
+      // 보스 체력이 남았으면 새로운 문장으로 교체!
+      target.word = pickWord(true);
+      addFloatingText(target.x, target.y - 40, '보스 문장 변경!', '#bf616a');
+    }
+
+    // 연쇄 번개 업그레이드 효과
+    if (proj.chainLeft > 0 && monsters.length > 0) {
+      const others = monsters.filter(m => m !== target).sort((a, b) => dist(target, a) - dist(target, b));
+      if (others.length > 0) {
+        projectiles.push({
+          x: target.x,
+          y: target.y,
+          target: others[0],
+          speed: 850,
+          damage: 1,
+          chainLeft: proj.chainLeft - 1,
+          wordLen: 2
+        });
+      }
+    }
+
+    updateHUD();
+  }
+
+  // 몬스터 처치
+  function killMonster(m) {
+    const idx = monsters.indexOf(m);
+    if (idx !== -1) monsters.splice(idx, 1);
+    if (lockedMonster === m) lockedMonster = null;
+
+    kills++;
+    spawnParticles(m.x, m.y, m.color, m.isBoss ? 30 : 14);
+
+    // 경험치 보석 드롭
+    gems.push({
+      x: m.x,
+      y: m.y,
+      xp: m.isBoss ? 60 : (15 + m.word.length * 2),
+      color: m.isBoss ? '#ebcb8b' : '#a3be8c'
+    });
+
+    if (player.healOnKill > 0) {
+      player.hp = Math.min(player.maxHp, player.hp + player.healOnKill);
+    }
+
+    // 10킬마다 웨이브 상승
+    const newWave = Math.floor(kills / 8) + 1;
+    if (newWave > wave) {
+      wave = newWave;
+      bossSpawnedInWave = false;
+      addFloatingText(player.x, player.y - 50, `WAVE ${wave} 시작!`, '#88c0d0');
+    }
+
+    // 3의 배수 웨이브마다 보스 출현
+    if (wave % 3 === 0 && !bossSpawnedInWave) {
+      bossSpawnedInWave = true;
+      spawnMonster(true);
+      addFloatingText(canvas.width / 2, 100, '⚠️ BOSS 출현! 긴 문장을 입력하세요!', '#bf616a');
+    }
+  }
+
+  // 레벨업 및 업그레이드 선택
+  const UPGRADES = [
+    {
+      title: '강력한 타격',
+      desc: '기본 공격력이 +1 증가하여 다중 체력 몬스터와 보스를 빠르게 처치합니다.',
+      apply: () => { player.attackPower += 1; }
+    },
+    {
+      title: '연쇄 번개 타자',
+      desc: '단어 명중 시 주변 몬스터 1마리에게 추가로 번개 투사체가 튕깁니다.',
+      apply: () => { player.chainCount += 1; }
+    },
+    {
+      title: '생명력 회복 & 증폭',
+      desc: '최대 체력이 +25 증가하고 현재 체력을 50 회복하며 처치 시 체력을 2 회복합니다.',
+      apply: () => {
+        player.maxHp += 25;
+        player.hp = Math.min(player.maxHp, player.hp + 50);
+        player.healOnKill += 2;
+      }
+    },
+    {
+      title: '콤보 마스터',
+      desc: '획득 점수 배율이 +30% 증가합니다.',
+      apply: () => { player.scoreMult += 0.3; }
+    }
+  ];
+
+  function triggerLevelUp() {
+    state = 'LEVELUP';
+    inputEl.blur();
+    const screen = document.getElementById('levelup-screen');
+    const container = document.getElementById('upgrade-cards');
+    container.innerHTML = '';
+
+    // 3개 랜덤 추출
+    const shuffled = [...UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
+    window.currentUpgradeChoices = shuffled;
+
+    shuffled.forEach((upg, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-key">[${idx + 1}]</div>
+        <div class="card-title">${upg.title}</div>
+        <div class="card-desc">${upg.desc}</div>
+      `;
+      card.onclick = () => selectUpgrade(idx);
+      container.appendChild(card);
+    });
+
+    screen.classList.remove('hidden');
+  }
+
+  function selectUpgrade(index) {
+    if (state !== 'LEVELUP' || !window.currentUpgradeChoices[index]) return;
+    window.currentUpgradeChoices[index].apply();
+    document.getElementById('levelup-screen').classList.add('hidden');
+    state = 'PLAYING';
+    inputEl.value = '';
+    inputEl.focus();
+    updateHUD();
+  }
+
+  // HUD 업데이트
+  function updateHUD() {
+    document.getElementById('ui-level').textContent = player.level;
+    document.getElementById('ui-wave').textContent = wave;
+    document.getElementById('ui-hp').textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
+    document.getElementById('ui-score').textContent = player.score.toLocaleString();
+    document.getElementById('ui-combo').textContent = typingStats.combo;
+
+    const elapsedMin = Math.max((performance.now() - typingStats.startTime) / 60000, 0.05);
+    const cpm = Math.round(typingStats.validStrokes / elapsedMin);
+    document.getElementById('ui-cpm').textContent = cpm;
+
+    const totalAttempts = typingStats.validStrokes + typingStats.errors * 2;
+    const acc = totalAttempts > 0 ? Math.max(0, Math.round((typingStats.validStrokes / totalAttempts) * 100)) : 100;
+    document.getElementById('ui-acc').textContent = `${acc}%`;
+
+    const xpPct = Math.min(100, (player.xp / player.nextXp) * 100);
+    document.getElementById('xp-bar').style.width = `${xpPct}%`;
+  }
+
+  // 유틸리티
+  function dist(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = 40 + Math.random() * 140;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        life: 0.4 + Math.random() * 0.3,
+        color
+      });
+    }
+  }
+
+  function addFloatingText(x, y, text, color) {
+    floatingTexts.push({ x, y, text, color, life: 1.0 });
+  }
+
+  // 메인 업데이트 루프
+  function update(dt) {
+    if (state !== 'PLAYING') return;
+    gameTime += dt;
+
+    // 몬스터 스폰 주기 (웨이브가 오를수록 빨라짐)
+    const spawnInterval = Math.max(1.1, 2.8 - wave * 0.18);
+    spawnTimer += dt;
+    if (spawnTimer >= spawnInterval && monsters.length < 14) {
+      spawnTimer = 0;
+      spawnMonster(false);
+    }
+
+    // 몬스터 이동
+    for (let i = monsters.length - 1; i >= 0; i--) {
+      const m = monsters[i];
+      if (m.hitFlash > 0) m.hitFlash -= dt;
+
+      const angle = Math.atan2(player.y - m.y, player.x - m.x);
+      m.x += Math.cos(angle) * m.speed * dt;
+      m.y += Math.sin(angle) * m.speed * dt;
+
+      // 플레이어 충돌 판정
+      if (dist(player, m) < player.radius + m.radius) {
+        player.hp -= (m.isBoss ? 25 : 12) * dt * 2.5;
+        if (player.hp <= 0) {
+          player.hp = 0;
+          gameOver();
+          return;
+        }
+        updateHUD();
+      }
+    }
+
+    // 투사체 이동
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      if (!monsters.includes(p.target)) {
+        projectiles.splice(i, 1);
+        continue;
+      }
+      const angle = Math.atan2(p.target.y - p.y, p.target.x - p.x);
+      p.x += Math.cos(angle) * p.speed * dt;
+      p.y += Math.sin(angle) * p.speed * dt;
+
+      if (dist(p, p.target) < p.target.radius + 8) {
+        onProjectileHit(p);
+        projectiles.splice(i, 1);
+      }
+    }
+
+    // 경험치 보석 흡수
+    for (let i = gems.length - 1; i >= 0; i--) {
+      const g = gems[i];
+      const angle = Math.atan2(player.y - g.y, player.x - g.x);
+      g.x += Math.cos(angle) * 260 * dt;
+      g.y += Math.sin(angle) * 260 * dt;
+
+      if (dist(player, g) < player.radius + 10) {
+        player.xp += g.xp;
+        gems.splice(i, 1);
+        if (player.xp >= player.nextXp) {
+          player.xp -= player.nextXp;
+          player.level++;
+          player.nextXp = Math.round(player.nextXp * 1.35);
+          updateHUD();
+          triggerLevelUp();
+          return;
+        }
+        updateHUD();
+      }
+    }
+
+    // 파티클 & 플로팅 텍스트
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+      pt.life -= dt;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      const ft = floatingTexts[i];
+      ft.y -= 28 * dt;
+      ft.life -= dt;
+      if (ft.life <= 0) floatingTexts.splice(i, 1);
+    }
+
+    // 주기적으로 타수(CPM) 갱신
+    if (Math.floor(gameTime * 2) !== Math.floor((gameTime - dt) * 2)) {
+      updateHUD();
+    }
+  }
+
+  // 렌더링
+  function draw() {
+    ctx.fillStyle = '#161922';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 픽셀 격자 배경
+    ctx.strokeStyle = '#1e222d';
+    ctx.lineWidth = 1;
+    const gridSize = 48;
+    for (let x = 0; x < canvas.width; x += gridSize) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += gridSize) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+
+    // 경험치 보석
+    gems.forEach(g => {
+      ctx.fillStyle = g.color;
+      ctx.fillRect(g.x - 4, g.y - 4, 8, 8);
+    });
+
+    // 플레이어 (픽셀 마법사 기사 형태)
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.fillStyle = '#88c0d0';
+    ctx.fillRect(-14, -14, 28, 28);
+    ctx.fillStyle = '#eceff4';
+    ctx.fillRect(-8, -8, 16, 10); // 바이저
+    ctx.fillStyle = '#2e3440';
+    ctx.fillRect(-5, -5, 3, 4);
+    ctx.fillRect(2, -5, 3, 4);
+    ctx.restore();
+
+    // 타겟 조준선
+    if (lockedMonster && monsters.includes(lockedMonster)) {
+      ctx.strokeStyle = 'rgba(163, 190, 140, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(player.x, player.y);
+      ctx.lineTo(lockedMonster.x, lockedMonster.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 몬스터 렌더링
+    monsters.forEach(m => {
+      const isLocked = (m === lockedMonster);
+      ctx.save();
+      ctx.translate(m.x, m.y);
+
+      // 몬스터 몸체 (픽셀 사각형 + 눈)
+      ctx.fillStyle = m.hitFlash > 0 ? '#ffffff' : m.color;
+      const r = m.radius;
+      ctx.fillRect(-r, -r, r * 2, r * 2);
+
+      // 눈
+      ctx.fillStyle = '#0d0f14';
+      ctx.fillRect(-r * 0.5, -r * 0.3, r * 0.3, r * 0.3);
+      ctx.fillRect(r * 0.2, -r * 0.3, r * 0.3, r * 0.3);
+
+      // 체력 바 (2 이상일 때)
+      if (m.maxHp > 1) {
+        const barW = r * 2.2;
+        ctx.fillStyle = '#2e3440';
+        ctx.fillRect(-barW / 2, r + 6, barW, 5);
+        ctx.fillStyle = '#bf616a';
+        ctx.fillRect(-barW / 2, r + 6, barW * (m.hp / m.maxHp), 5);
+      }
+
+      // 머리 위 단어 박스
+      ctx.font = m.isBoss ? 'bold 18px DungGeunMo, monospace' : '16px DungGeunMo, monospace';
+      const textWidth = ctx.measureText(m.word).width;
+      const boxW = textWidth + 16;
+      const boxH = 26;
+      const boxY = -r - 34;
+
+      ctx.fillStyle = isLocked ? 'rgba(46, 52, 64, 0.95)' : 'rgba(13, 15, 20, 0.85)';
+      ctx.fillRect(-boxW / 2, boxY, boxW, boxH);
+      ctx.strokeStyle = isLocked ? '#a3be8c' : (m.isBoss ? '#bf616a' : '#4c566a');
+      ctx.lineWidth = isLocked ? 2 : 1;
+      ctx.strokeRect(-boxW / 2, boxY, boxW, boxH);
+
+      // 단어 텍스트 (조준된 몬스터는 일치하는 글자 하이라이트)
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const startX = -textWidth / 2;
+      const centerY = boxY + boxH / 2 + 1;
+
+      if (isLocked && inputEl.value.length > 0) {
+        const typed = inputEl.value;
+        let matchLen = 0;
+        for (let i = 0; i < typed.length; i++) {
+          if (m.word[i] === typed[i]) matchLen++;
+          else break;
+        }
+        const matchedStr = m.word.slice(0, matchLen);
+        const restStr = m.word.slice(matchLen);
+
+        ctx.fillStyle = '#a3be8c';
+        ctx.fillText(matchedStr, startX, centerY);
+        const matchedW = ctx.measureText(matchedStr).width;
+        ctx.fillStyle = '#eceff4';
+        ctx.fillText(restStr, startX + matchedW, centerY);
+      } else {
+        ctx.fillStyle = m.isBoss ? '#ebcb8b' : '#eceff4';
+        ctx.fillText(m.word, startX, centerY);
+      }
+
+      ctx.restore();
+    });
+
+    // 투사체
+    projectiles.forEach(p => {
+      ctx.fillStyle = '#88c0d0';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 파티클
+    particles.forEach(pt => {
+      ctx.fillStyle = pt.color;
+      ctx.fillRect(pt.x - 3, pt.y - 3, 6, 6);
+    });
+
+    // 플로팅 텍스트
+    floatingTexts.forEach(ft => {
+      ctx.font = 'bold 16px DungGeunMo, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = ft.color;
+      ctx.fillText(ft.text, ft.x, ft.y);
+    });
+  }
+
+  function gameOver() {
+    state = 'GAMEOVER';
+    inputEl.blur();
+    const elapsedMin = Math.max((performance.now() - typingStats.startTime) / 60000, 0.05);
+    const cpm = Math.round(typingStats.validStrokes / elapsedMin);
+    const totalAttempts = typingStats.validStrokes + typingStats.errors * 2;
+    const acc = totalAttempts > 0 ? Math.max(0, Math.round((typingStats.validStrokes / totalAttempts) * 100)) : 100;
+
+    document.getElementById('final-stats').innerHTML = `
+      최종 점수: <b>${player.score.toLocaleString()}점</b> (도달 WAVE ${wave})<br>
+      처치한 몬스터: <b>${kills}마리</b> | 최대 콤보: <b>${typingStats.maxCombo}</b><br>
+      평균 타수: <b>${cpm}타/분</b> | 정확도: <b>${acc}%</b>
+    `;
+    document.getElementById('gameover-screen').classList.remove('hidden');
+  }
+
+  function loop(timestamp) {
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+    lastTime = timestamp;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // 이벤트 리스너
+  inputEl.addEventListener('input', handleTypingInput);
+  inputEl.addEventListener('compositionupdate', handleTypingInput);
+
+  // ESC 키로 현재 입력 초기화
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      inputEl.value = '';
+      lockedMonster = null;
+      previewEl.innerHTML = '입력 초기화됨';
+    }
+  });
+
+  // 전역 키 입력 (시작 및 레벨업 단축키)
+  window.addEventListener('keydown', (e) => {
+    if (state === 'START' && e.key === 'Enter') {
+      startGame();
+    } else if (state === 'LEVELUP') {
+      if (e.key === '1') selectUpgrade(0);
+      if (e.key === '2') selectUpgrade(1);
+      if (e.key === '3') selectUpgrade(2);
+    }
+  });
+
+  function startGame() {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('gameover-screen').classList.add('hidden');
+    initGame();
+    state = 'PLAYING';
+    lastTime = performance.now();
+    inputEl.focus();
+  }
+
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('restart-btn').addEventListener('click', startGame);
+
+  // 입력창 포커스 유지
+  canvas.addEventListener('click', () => {
+    if (state === 'PLAYING') inputEl.focus();
+  });
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
